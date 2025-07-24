@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:lottie/lottie.dart';
 
 void main() => runApp(const WeatherApp());
 
@@ -86,9 +87,34 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     final temp = weatherData!['main']['temp'].round();
     final desc = weatherData!['weather'][0]['description'];
     final icon = weatherData!['weather'][0]['icon'];
+    final weatherMain = weatherData!['weather'][0]['main']
+        .toString()
+        .toLowerCase();
+    String lottieAsset;
+    switch (weatherMain) {
+      case 'clear':
+        lottieAsset = 'assets/sunny.json';
+        break;
+      case 'clouds':
+        lottieAsset = 'assets/cloudy.json';
+        break;
+      case 'rain':
+      case 'drizzle':
+        lottieAsset = 'assets/rainy.json';
+        break;
+      case 'snow':
+        lottieAsset = 'assets/snowy.json';
+        break;
+      case 'partially cloudy':
+        lottieAsset = 'assets/partially_cloudy.json';
+        break;
+      default:
+        lottieAsset = 'assets/sunny.json';
+    }
     return Center(
       child: SizedBox(
         width: 350,
+        height: 350,
         child: Card(
           elevation: 8,
           shape: RoundedRectangleBorder(
@@ -97,66 +123,120 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           color: Colors.white.withOpacity(0.85),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Weather icon in a circle with shadow
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.3),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Weather animation in a circle with shadow
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6DD5FA), Color(0xFF2980B9)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6DD5FA), Color(0xFF2980B9)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Lottie.asset(
+                      lottieAsset,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.contain,
+                      repeat: true,
                     ),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child: Image.network(
-                    'https://openweathermap.org/img/wn/$icon@2x.png',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.contain,
+                  const SizedBox(height: 24),
+                  Text(
+                    '$city, $country',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF22223B),
+                      letterSpacing: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '$city, $country',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF22223B),
-                    letterSpacing: 1.2,
+                  const SizedBox(height: 12),
+                  Text(
+                    '$temp°C',
+                    style: const TextStyle(
+                      fontSize: 56,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2980B9),
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '$temp°C',
-                  style: const TextStyle(
-                    fontSize: 56,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2980B9),
-                    letterSpacing: 1.5,
+                  const SizedBox(height: 8),
+                  Text(
+                    desc[0].toUpperCase() + desc.substring(1),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF22223B),
+                      letterSpacing: 1.1,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  desc[0].toUpperCase() + desc.substring(1),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF22223B),
-                    letterSpacing: 1.1,
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Column(
+                        children: [
+                          const Icon(
+                            Icons.water_drop,
+                            color: Color(0xFF2980B9),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${weatherData!['main']['humidity']}%',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2980B9),
+                            ),
+                          ),
+                          const Text(
+                            'Humidity',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF22223B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          const Icon(Icons.air, color: Color(0xFF2980B9)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${weatherData!['wind']['speed']} m/s',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2980B9),
+                            ),
+                          ),
+                          const Text(
+                            'Wind',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF22223B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -166,6 +246,10 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double responsiveWidth = screenWidth * 0.9 < 400
+        ? screenWidth * 0.9
+        : 400;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -206,7 +290,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                 // Stylish search bar
                 Center(
                   child: SizedBox(
-                    width: 400, // Set max width for search bar
+                    width: responsiveWidth,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.7),
@@ -279,7 +363,15 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                Expanded(child: weatherInfo()),
+                Expanded(
+                  child: Center(
+                    child: SizedBox(
+                      width: responsiveWidth,
+                      height: 350,
+                      child: weatherInfo(),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
