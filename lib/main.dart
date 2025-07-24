@@ -87,72 +87,77 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     final desc = weatherData!['weather'][0]['description'];
     final icon = weatherData!['weather'][0]['icon'];
     return Center(
-      child: Card(
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        color: Colors.white.withOpacity(0.85),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Weather icon in a circle with shadow
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.3),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
+      child: SizedBox(
+        width: 350,
+        child: Card(
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(32),
+          ),
+          color: Colors.white.withOpacity(0.85),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Weather icon in a circle with shadow
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.3),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6DD5FA), Color(0xFF2980B9)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6DD5FA), Color(0xFF2980B9)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Image.network(
+                    'https://openweathermap.org/img/wn/$icon@2x.png',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
                   ),
                 ),
-                padding: const EdgeInsets.all(16),
-                child: Image.network(
-                  'https://openweathermap.org/img/wn/$icon@2x.png',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
+                const SizedBox(height: 24),
+                Text(
+                  '$city, $country',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF22223B),
+                    letterSpacing: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                '$city, $country',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF22223B),
-                  letterSpacing: 1.2,
+                const SizedBox(height: 12),
+                Text(
+                  '$temp°C',
+                  style: const TextStyle(
+                    fontSize: 56,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2980B9),
+                    letterSpacing: 1.5,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$temp°C',
-                style: const TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2980B9),
-                  letterSpacing: 1.5,
+                const SizedBox(height: 8),
+                Text(
+                  desc[0].toUpperCase() + desc.substring(1),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF22223B),
+                    letterSpacing: 1.1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                desc[0].toUpperCase() + desc.substring(1),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF22223B),
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -232,8 +237,10 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                                 color: Color(0xFF22223B),
                               ),
                               onSubmitted: (val) {
-                                if (val.trim().isNotEmpty)
+                                if (val.trim().isNotEmpty) {
                                   fetchWeather(val.trim());
+                                  _controller.clear();
+                                }
                               },
                             ),
                           ),
@@ -242,7 +249,10 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                             child: ElevatedButton(
                               onPressed: () {
                                 final city = _controller.text.trim();
-                                if (city.isNotEmpty) fetchWeather(city);
+                                if (city.isNotEmpty) {
+                                  fetchWeather(city);
+                                  _controller.clear();
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
