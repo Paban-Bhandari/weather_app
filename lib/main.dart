@@ -5,23 +5,69 @@ import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
+import 'services/firestore_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
 
-void main() => runApp(const WeatherApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Check if Firebase is already initialized to prevent duplicate app error
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  runApp(const WeatherApp());
+}
 
 class WeatherApp extends StatelessWidget {
   const WeatherApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Weather Pro',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Weather Pro',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          textTheme: GoogleFonts.poppinsTextTheme(),
+          useMaterial3: true,
+        ),
+        home: const AuthWrapper(),
       ),
-      home: const WeatherHomePage(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<firebase_auth.User?>(
+      stream: firebase_auth.FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasData) {
+          return const WeatherHomePage();
+        }
+
+        return const LoginScreen();
+      },
     );
   }
 }
@@ -37,6 +83,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     with TickerProviderStateMixin {
   final String apiKey = 'f5ccb4363e4bf262751f92ea1f726e23';
   final TextEditingController _controller = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? forecastData;
   String? error;
@@ -90,10 +137,18 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
+        final weatherDataResponse = json.decode(response.body);
         setState(() {
-          weatherData = json.decode(response.body);
+          weatherData = weatherDataResponse;
           loading = false;
         });
+
+        // Save to Firestore if user is authenticated
+        await _firestoreService.saveWeatherSearch(
+          city: city,
+          weatherData: weatherDataResponse,
+        );
+
         _animationController.forward();
         fetchForecast(city);
       } else {
@@ -335,23 +390,78 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                 ),
                 child: Column(
                   children: [
-                    // Location with time
+                    // Location with time and favorite button
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(
-                          Icons.location_on,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$city, $country',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '$city, $country',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                        // Favorite button
+                        FutureBuilder<bool>(
+                          future: _firestoreService.isFavoriteCity(city),
+                          builder: (context, snapshot) {
+                            final isFavorite = snapshot.data ?? false;
+                            return IconButton(
+                              onPressed: () async {
+                                if (isFavorite) {
+                                  await _firestoreService.removeFavoriteCity(
+                                    city,
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '$city removed from favorites',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  await _firestoreService.saveFavoriteCity(
+                                    city: city,
+                                    country: country,
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('$city added to favorites'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                                setState(() {}); // Rebuild to update icon
+                              },
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: isFavorite
+                                    ? Colors.red
+                                    : Colors.white.withOpacity(0.8),
+                                size: 24,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -751,23 +861,53 @@ class _WeatherHomePageState extends State<WeatherHomePage>
               // Header
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Weather Pro',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Weather Pro',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Get accurate weather information',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Get accurate weather information',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 16,
+                    // Profile Button
+                    IconButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ProfileScreen(),
+                          ),
+                        );
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
                     ),
                   ],
