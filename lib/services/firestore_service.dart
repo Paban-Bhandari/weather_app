@@ -194,4 +194,28 @@ class FirestoreService {
       rethrow;
     }
   }
+
+  // Delete specific weather history item
+  Future<void> deleteWeatherHistoryItem(String city) async {
+    if (currentUserId == null) return;
+
+    try {
+      final historyDocs = await _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .collection('weather_history')
+          .where('city', isEqualTo: city)
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in historyDocs.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error deleting weather history item: $e');
+      rethrow;
+    }
+  }
 }

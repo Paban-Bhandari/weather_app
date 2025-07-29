@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
 
@@ -14,10 +14,76 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  int _selectedIndex = 0;
+  List<Map<String, dynamic>> favoriteCities = [];
+  List<Map<String, dynamic>> searchHistory = [];
+  bool isLoading = true;
+
+  // Responsive helper methods
+  bool isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.width > 600;
+  }
+
+  bool isLargeTablet(BuildContext context) {
+    return MediaQuery.of(context).size.width > 900;
+  }
+
+  double getResponsiveFontSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth > 900) return baseSize * 1.3; // Large tablet
+    if (screenWidth > 600) return baseSize * 1.1; // Tablet
+    return baseSize; // Phone
+  }
+
+  double getResponsivePadding(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth > 900) return 32.0; // Large tablet
+    if (screenWidth > 600) return 24.0; // Tablet
+    return 20.0; // Phone
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Load data using streams
+      _firestoreService.getFavoriteCities().listen((snapshot) {
+        final favorites = snapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+        setState(() {
+          favoriteCities = favorites;
+        });
+      });
+
+      _firestoreService.getWeatherHistory().listen((snapshot) {
+        final history = snapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+        setState(() {
+          searchHistory = history;
+          isLoading = false;
+        });
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = this.isTablet(context);
+    final padding = getResponsivePadding(context);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -28,126 +94,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              _buildHeader(),
-
-              // Tab Bar
-              _buildTabBar(),
-
-              // Content
-              Expanded(child: _buildContent()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.user;
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              // Profile Picture
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white.withOpacity(0.2),
-                backgroundImage: user?.photoURL != null
-                    ? NetworkImage(user!.photoURL!)
-                    : null,
-                child: user?.photoURL == null
-                    ? Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Colors.white.withOpacity(0.8),
-                      )
-                    : null,
-              ),
-
-              const SizedBox(width: 16),
-
-              // User Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user?.displayName ?? 'User',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                            size: isTablet ? 32 : 24,
+                          ),
+                        ),
+                        SizedBox(width: isTablet ? 16 : 12),
+                        Text(
+                          'Profile',
+                          style: GoogleFonts.poppins(
+                            fontSize: getResponsiveFontSize(context, 28),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const Spacer(),
+                        Consumer<AuthProvider>(
+                          builder: (context, authProvider, child) {
+                            return IconButton(
+                              onPressed: () async {
+                                await authProvider.signOut();
+                                if (mounted) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              icon: Icon(
+                                Icons.logout,
+                                color: Colors.white,
+                                size: isTablet ? 32 : 24,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    Text(
-                      user?.email ?? '',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Sign Out Button
-              IconButton(
-                onPressed: () => _showSignOutDialog(context, authProvider),
-                icon: Icon(
-                  Icons.logout,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [_buildTabItem('Favorites', 0), _buildTabItem('History', 1)],
-      ),
-    );
-  }
-
-  Widget _buildTabItem(String title, int index) {
-    final isSelected = _selectedIndex == index;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.white.withOpacity(0.2)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
+                  // Content
+                  Expanded(child: _buildContent()),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -155,336 +154,363 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildContent() {
-    switch (_selectedIndex) {
-      case 0:
-        return _buildFavoritesTab();
-      case 1:
-        return _buildHistoryTab();
-      default:
-        return const SizedBox.shrink();
+    final isTablet = this.isTablet(context);
+    final padding = getResponsivePadding(context);
+
+    if (isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          strokeWidth: isTablet ? 4 : 3,
+        ),
+      );
     }
-  }
 
-  Widget _buildFavoritesTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestoreService.getFavoriteCities(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          );
-        }
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User Info Card
+          _buildUserInfoCard(),
+          SizedBox(height: isTablet ? 32 : 24),
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'Error loading favorites: ${snapshot.error}',
-              style: const TextStyle(color: Colors.white),
-            ),
-          );
-        }
+          // Favorite Cities Section
+          _buildSectionTitle('Favorite Cities'),
+          SizedBox(height: isTablet ? 16 : 12),
+          _buildFavoriteCitiesList(),
+          SizedBox(height: isTablet ? 32 : 24),
 
-        final favorites = snapshot.data?.docs ?? [];
-
-        if (favorites.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.favorite_border,
-                  size: 64,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No favorite cities yet',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Add cities to your favorites to see them here',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: favorites.length,
-          itemBuilder: (context, index) {
-            final favorite = favorites[index].data() as Map<String, dynamic>;
-            final city = favorite['city'] as String;
-            final country = favorite['country'] as String;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: Row(
+          // Search History Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.location_city,
-                    color: Colors.white.withOpacity(0.8),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          city,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          country,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
+                  _buildSectionTitle('Recent Searches'),
+                  if (searchHistory.isNotEmpty)
+                    Text(
+                      '${searchHistory.length} items',
+                      style: GoogleFonts.poppins(
+                        fontSize: getResponsiveFontSize(context, 12),
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => _removeFavorite(city),
-                    icon: Icon(
-                      Icons.favorite,
-                      color: Colors.red.withOpacity(0.8),
-                      size: 20,
-                    ),
-                  ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildHistoryTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestoreService.getWeatherHistory(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'Error loading history: ${snapshot.error}',
-              style: const TextStyle(color: Colors.white),
-            ),
-          );
-        }
-
-        final history = snapshot.data?.docs ?? [];
-
-        if (history.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.history,
-                  size: 64,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No search history yet',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    color: Colors.white.withOpacity(0.8),
+              if (searchHistory.isNotEmpty)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your weather searches will appear here',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            // Clear History Button
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
+                  child: TextButton.icon(
                     onPressed: () => _showClearHistoryDialog(context),
                     icon: Icon(
                       Icons.clear_all,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 20,
+                      color: Colors.red,
+                      size: isTablet ? 20 : 16,
                     ),
                     label: Text(
-                      'Clear History',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 14,
+                      'Clear All',
+                      style: GoogleFonts.poppins(
+                        fontSize: getResponsiveFontSize(context, 12),
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // History List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: history.length,
-                itemBuilder: (context, index) {
-                  final historyItem =
-                      history[index].data() as Map<String, dynamic>;
-                  final city = historyItem['city'] as String;
-                  final weatherData =
-                      historyItem['weatherData'] as Map<String, dynamic>;
-                  final timestamp = historyItem['timestamp'] as Timestamp;
-
-                  final temp = weatherData['main']['temp'].round();
-                  final desc = weatherData['weather'][0]['description'];
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.search,
-                          color: Colors.white.withOpacity(0.8),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                city,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                '$temp°C - ${desc[0].toUpperCase() + desc.substring(1)}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.7),
-                                ),
-                              ),
-                              Text(
-                                _formatTimestamp(timestamp),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+                ),
+            ],
+          ),
+          SizedBox(height: isTablet ? 16 : 12),
+          _buildSearchHistoryList(),
+        ],
+      ),
     );
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
-    final now = DateTime.now();
-    final date = timestamp.toDate();
-    final difference = now.difference(date);
+  Widget _buildUserInfoCard() {
+    final isTablet = this.isTablet(context);
+    final padding = getResponsivePadding(context);
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
-    } else {
-      return 'Just now';
-    }
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 32 : 24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, child) {
+          final user = firebase_auth.FirebaseAuth.instance.currentUser;
+
+          return Row(
+            children: [
+              Container(
+                width: isTablet ? 80 : 60,
+                height: isTablet ? 80 : 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.2),
+                ),
+                child: user?.photoURL != null
+                    ? ClipOval(
+                        child: Image.network(
+                          user!.photoURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: isTablet ? 40 : 30,
+                            );
+                          },
+                        ),
+                      )
+                    : Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: isTablet ? 40 : 30,
+                      ),
+              ),
+              SizedBox(width: isTablet ? 20 : 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.displayName ?? 'User',
+                      style: GoogleFonts.poppins(
+                        fontSize: getResponsiveFontSize(context, 20),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: isTablet ? 8 : 4),
+                    Text(
+                      user?.email ?? 'No email',
+                      style: GoogleFonts.poppins(
+                        fontSize: getResponsiveFontSize(context, 14),
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
-  Future<void> _removeFavorite(String city) async {
-    try {
-      await _firestoreService.removeFavoriteCity(city);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$city removed from favorites'),
-          backgroundColor: Colors.green,
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.poppins(
+        fontSize: getResponsiveFontSize(context, 20),
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildFavoriteCitiesList() {
+    final isTablet = this.isTablet(context);
+
+    if (favoriteCities.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(isTablet ? 24 : 20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
         ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error removing favorite: $e'),
-          backgroundColor: Colors.red,
+        child: Center(
+          child: Text(
+            'No favorite cities yet',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(context, 16),
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
         ),
       );
     }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: favoriteCities.length,
+        itemBuilder: (context, index) {
+          final city = favoriteCities[index];
+          return ListTile(
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 24 : 16,
+              vertical: isTablet ? 8 : 4,
+            ),
+            leading: Icon(
+              Icons.location_on,
+              color: Colors.white,
+              size: isTablet ? 28 : 24,
+            ),
+            title: Text(
+              city['city'] ?? '',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 16),
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            subtitle: Text(
+              city['country'] ?? '',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 14),
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+            trailing: IconButton(
+              onPressed: () async {
+                await _firestoreService.removeFavoriteCity(city['city']);
+                _loadUserData();
+              },
+              icon: Icon(
+                Icons.delete,
+                color: Colors.red.withValues(alpha: 0.8),
+                size: isTablet ? 28 : 24,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchHistoryList() {
+    final isTablet = this.isTablet(context);
+
+    if (searchHistory.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(isTablet ? 24 : 20),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.history,
+                color: Colors.white.withValues(alpha: 0.5),
+                size: isTablet ? 48 : 40,
+              ),
+              SizedBox(height: isTablet ? 12 : 8),
+              Text(
+                'No search history yet',
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 16),
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+              SizedBox(height: isTablet ? 4 : 2),
+              Text(
+                'Search for cities to see your history here',
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 12),
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: searchHistory.length,
+        itemBuilder: (context, index) {
+          final search = searchHistory[index];
+          return ListTile(
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 24 : 16,
+              vertical: isTablet ? 8 : 4,
+            ),
+            leading: Icon(
+              Icons.search,
+              color: Colors.white,
+              size: isTablet ? 28 : 24,
+            ),
+            title: Text(
+              search['city'] ?? '',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 16),
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            subtitle: Text(
+              'Searched on ${search['timestamp'] ?? ''}',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 14),
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _showClearHistoryDialog(BuildContext context) async {
+    final isTablet = this.isTablet(context);
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear History'),
-        content: const Text(
-          'Are you sure you want to clear all search history?',
+        backgroundColor: const Color(0xFF667eea),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+        ),
+        title: Text(
+          'Clear History',
+          style: GoogleFonts.poppins(
+            fontSize: getResponsiveFontSize(context, 18),
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to clear all search history? This action cannot be undone.',
+          style: GoogleFonts.poppins(
+            fontSize: getResponsiveFontSize(context, 14),
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 14),
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -492,47 +518,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               try {
                 await _firestoreService.deleteWeatherHistory();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('History cleared successfully'),
+                  SnackBar(
+                    content: Text(
+                      'Search history cleared successfully',
+                      style: GoogleFonts.poppins(fontSize: 14),
+                    ),
                     backgroundColor: Colors.green,
                   ),
                 );
+                _loadUserData(); // Reload data
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Error clearing history: $e'),
+                    content: Text(
+                      'Error clearing history: $e',
+                      style: GoogleFonts.poppins(fontSize: 14),
+                    ),
                     backgroundColor: Colors.red,
                   ),
                 );
               }
             },
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showSignOutDialog(
-    BuildContext context,
-    AuthProvider authProvider,
-  ) async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await authProvider.signOut();
-            },
-            child: const Text('Sign Out'),
+            child: Text(
+              'Clear',
+              style: GoogleFonts.poppins(
+                fontSize: getResponsiveFontSize(context, 14),
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+            ),
           ),
         ],
       ),
