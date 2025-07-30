@@ -425,7 +425,6 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isTablet = this.isTablet(context);
-
         final padding = getResponsivePadding(context);
 
         return FadeTransition(
@@ -462,96 +461,28 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                     ),
                     child: Column(
                       children: [
-                        // Location with time and favorite button
+                        // Location
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.location_on,
-                                    color: Colors.white,
-                                    size: isTablet ? 28 : 20,
-                                  ),
-                                  SizedBox(width: isTablet ? 12 : 8),
-                                  Expanded(
-                                    child: Text(
-                                      '$city, $country',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: getResponsiveFontSize(
-                                          context,
-                                          24,
-                                        ),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ],
+                            Icon(
+                              Icons.location_on,
+                              color: Colors.white,
+                              size: getResponsiveFontSize(context, 20),
+                            ),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                '$city, $country',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: getResponsiveFontSize(context, 18),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // Favorite button
-                            FutureBuilder<bool>(
-                              future: _firestoreService.isFavoriteCity(city),
-                              builder: (context, snapshot) {
-                                final isFavorite = snapshot.data ?? false;
-                                return IconButton(
-                                  onPressed: () async {
-                                    if (isFavorite) {
-                                      await _firestoreService
-                                          .removeFavoriteCity(city);
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '$city removed from favorites',
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    } else {
-                                      await _firestoreService.saveFavoriteCity(
-                                        city: city,
-                                        country: country,
-                                      );
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '$city added to favorites',
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    }
-                                    setState(() {}); // Rebuild to update icon
-                                  },
-                                  icon: Icon(
-                                    isFavorite
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: isFavorite
-                                        ? Colors.red
-                                        : Colors.white.withOpacity(0.8),
-                                    size: isTablet ? 32 : 24,
-                                  ),
-                                );
-                              },
-                            ),
                           ],
-                        ),
-                        SizedBox(height: isTablet ? 12 : 8),
-                        Text(
-                          DateFormat('EEEE, MMMM d, y').format(DateTime.now()),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: getResponsiveFontSize(context, 14),
-                          ),
                         ),
                         SizedBox(height: isTablet ? 32 : 24),
 
@@ -609,7 +540,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
 
                   SizedBox(height: isTablet ? 24 : 20),
 
-                  // Weather Details Grid
+                  // Weather Details Grid - Fixed for overflow
                   Container(
                     margin: EdgeInsets.symmetric(horizontal: padding),
                     padding: EdgeInsets.all(isTablet ? 28 : 20),
@@ -629,39 +560,39 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                           ),
                         ),
                         SizedBox(height: isTablet ? 24 : 20),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: getGridCrossAxisCount(context),
-                          crossAxisSpacing: isTablet ? 20 : 16,
-                          mainAxisSpacing: isTablet ? 20 : 16,
-                          childAspectRatio: isTablet ? 1.8 : 1.5,
-                          children: [
-                            _buildDetailCard(
-                              context,
-                              'Humidity',
-                              '$humidity%',
-                              Icons.water_drop,
-                            ),
-                            _buildDetailCard(
-                              context,
-                              'Wind Speed',
-                              '${windSpeed.toStringAsFixed(1)} m/s',
-                              Icons.air,
-                            ),
-                            _buildDetailCard(
-                              context,
-                              'Pressure',
-                              '${pressure} hPa',
-                              Icons.compress,
-                            ),
-                            _buildDetailCard(
-                              context,
-                              'Visibility',
-                              '${visibility.toStringAsFixed(1)} km',
-                              Icons.visibility,
-                            ),
-                          ],
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildDetailCard(
+                                context,
+                                'Humidity',
+                                '$humidity%',
+                                Icons.water_drop,
+                              ),
+                              SizedBox(width: isTablet ? 16 : 12),
+                              _buildDetailCard(
+                                context,
+                                'Wind Speed',
+                                '${windSpeed.toStringAsFixed(1)} m/s',
+                                Icons.air,
+                              ),
+                              SizedBox(width: isTablet ? 16 : 12),
+                              _buildDetailCard(
+                                context,
+                                'Pressure',
+                                '${pressure} hPa',
+                                Icons.compress,
+                              ),
+                              SizedBox(width: isTablet ? 16 : 12),
+                              _buildDetailCard(
+                                context,
+                                'Visibility',
+                                '${visibility.toStringAsFixed(1)} km',
+                                Icons.visibility,
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -754,16 +685,19 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                 ),
               ),
               SizedBox(height: isTablet ? 24 : 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(
-                  5,
-                  (index) => Container(
-                    width: isTablet ? 80 : 60,
-                    height: isTablet ? 100 : 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(
+                    5,
+                    (index) => Container(
+                      width: isTablet ? 80 : 60,
+                      height: isTablet ? 100 : 80,
+                      margin: EdgeInsets.only(right: isTablet ? 16 : 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -865,77 +799,87 @@ class _WeatherHomePageState extends State<WeatherHomePage>
               ],
             ),
             SizedBox(height: isTablet ? 24 : 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: dailyForecasts.map((forecast) {
-                final date = forecast['date'] as DateTime;
-                final temp = forecast['temp'] as int;
-                final weather = forecast['weather'] as Map<String, dynamic>;
+            // Fixed forecast row with horizontal scroll for smaller screens
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: dailyForecasts.map((forecast) {
+                  final date = forecast['date'] as DateTime;
+                  final temp = forecast['temp'] as int;
+                  final weather = forecast['weather'] as Map<String, dynamic>;
 
-                return Column(
-                  children: [
-                    Text(
-                      DateFormat('E').format(date),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: getResponsiveFontSize(context, 14),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      DateFormat('MMM d').format(date),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: getResponsiveFontSize(context, 12),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    SizedBox(height: isTablet ? 12 : 8),
-                    Container(
-                      width: isTablet ? 50 : 40,
-                      height: isTablet ? 50 : 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: getWeatherColor(
-                          weather['main'],
-                        ).withOpacity(0.2),
-                      ),
-                      child: Lottie.asset(
-                        getWeatherAnimation(weather['main']),
-                        width: isTablet ? 35 : 30,
-                        height: isTablet ? 35 : 30,
-                        fit: BoxFit.contain,
-                        repeat: true,
-                      ),
-                    ),
-                    SizedBox(height: isTablet ? 12 : 8),
-                    Text(
-                      '$temp°C',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: getResponsiveFontSize(context, 16),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Forecast',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontSize: getResponsiveFontSize(context, 10),
-                          fontWeight: FontWeight.w500,
+                  return Container(
+                    width: isTablet ? 120 : 100,
+                    margin: EdgeInsets.only(right: isTablet ? 16 : 12),
+                    child: Column(
+                      children: [
+                        Text(
+                          DateFormat('E').format(date),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: getResponsiveFontSize(context, 14),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                        Text(
+                          DateFormat('MMM d').format(date),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: getResponsiveFontSize(context, 12),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        SizedBox(height: isTablet ? 12 : 8),
+                        Container(
+                          width: isTablet ? 50 : 40,
+                          height: isTablet ? 50 : 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: getWeatherColor(
+                              weather['main'],
+                            ).withOpacity(0.2),
+                          ),
+                          child: Lottie.asset(
+                            getWeatherAnimation(weather['main']),
+                            width: isTablet ? 35 : 30,
+                            height: isTablet ? 35 : 30,
+                            fit: BoxFit.contain,
+                            repeat: true,
+                          ),
+                        ),
+                        SizedBox(height: isTablet ? 12 : 8),
+                        Text(
+                          '$temp°C',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: getResponsiveFontSize(context, 16),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Forecast',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: getResponsiveFontSize(context, 10),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ),
@@ -952,6 +896,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     final isTablet = this.isTablet(context);
 
     return Container(
+      width: isTablet ? 140 : 120,
       padding: EdgeInsets.all(isTablet ? 20 : 16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
@@ -970,6 +915,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
               fontSize: getResponsiveFontSize(context, 18),
               fontWeight: FontWeight.bold,
             ),
+            textAlign: TextAlign.center,
           ),
           SizedBox(height: isTablet ? 6 : 4),
           Text(

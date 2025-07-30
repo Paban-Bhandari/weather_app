@@ -31,6 +31,15 @@ A beautiful, responsive weather application built with Flutter that provides rea
 - Android Studio / VS Code
 - Firebase project setup
 
+### App Icon
+The app features a custom weather-themed icon with:
+- **Gradient Background**: Blue to purple gradient matching the app theme
+- **Sun Design**: Bright yellow sun with radiating rays
+- **Cloud Element**: White cloud with blue rain drops
+- **Multi-platform Support**: Automatically generated for Android, iOS, Web, Windows, and macOS
+
+The icon was created using the `flutter_launcher_icons` package and is located at `assets/app_icon.png`.
+
 ### Installation
 
 1. **Clone the repository**
