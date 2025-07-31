@@ -89,6 +89,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
   String? error;
   bool loading = false;
   bool forecastLoading = false;
+  bool isFavorite = false;
   int currentIndex = 0;
   late AnimationController _animationController;
   late AnimationController _forecastAnimationController;
@@ -150,6 +151,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     );
 
     fetchWeather('Kathmandu');
+    _checkFavoriteStatus('Kathmandu');
   }
 
   Future<void> fetchWeather(String city) async {
@@ -177,6 +179,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
 
         _animationController.forward();
         fetchForecast(city);
+        _checkFavoriteStatus(city);
       } else {
         setState(() {
           error = 'City not found. Please try again.';
@@ -220,6 +223,30 @@ class _WeatherHomePageState extends State<WeatherHomePage>
         forecastLoading = false;
       });
     }
+  }
+
+  Future<void> _checkFavoriteStatus(String city) async {
+    final favorite = await _firestoreService.isFavoriteCity(city);
+    setState(() {
+      isFavorite = favorite;
+    });
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (weatherData == null) return;
+
+    final city = weatherData!['name'];
+    final country = weatherData!['sys']['country'];
+
+    if (isFavorite) {
+      await _firestoreService.removeFavoriteCity(city);
+    } else {
+      await _firestoreService.saveFavoriteCity(city: city, country: country);
+    }
+
+    setState(() {
+      isFavorite = !isFavorite;
+    });
   }
 
   String getWeatherAnimation(String weatherMain) {
@@ -461,25 +488,46 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                     ),
                     child: Column(
                       children: [
-                        // Location
+                        // Location and Favorite Button
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.white,
-                              size: getResponsiveFontSize(context, 20),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    color: Colors.white,
+                                    size: getResponsiveFontSize(context, 20),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      '$city, $country',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: getResponsiveFontSize(
+                                          context,
+                                          18,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                '$city, $country',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: getResponsiveFontSize(context, 18),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                            // Favorite Button
+                            IconButton(
+                              onPressed: _toggleFavorite,
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: isFavorite ? Colors.red : Colors.white,
+                                size: getResponsiveFontSize(context, 24),
                               ),
                             ),
                           ],
